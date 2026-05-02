@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WebXR Smart Info VR</title>
+    
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
+    <script>
+        // ==========================================
+        // 1. AUTO-FIT & CENTER COMPONENT
+        // ==========================================
+        AFRAME.registerComponent('auto-fit', {
+            init: function () {
+                this.el.addEventListener('model-loaded', () => {
+                    const mesh = this.el.getObject3D('mesh');
+                    if (!mesh) return;
+
+                    const box = new THREE.Box3().setFromObject(mesh);
+                    const size = box.getSize(new THREE.Vector3());
+                    
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const targetSize = 2.5; 
+                    const scaleFactor = targetSize / (maxDim || 1); 
+                    
+                    this.el.setAttribute('scale', `${scaleFactor} ${scaleFactor} ${scaleFactor}`);
+
+                    const center = box.getCenter(new THREE.Vector3());
+                    mesh.position.set(-center.x, -center.y, -center.z);
+                });
+            }
+        });
+
+        // ==========================================
+        // 2. SCENE MANAGER & TTS (URL Parsing)
+        // ==========================================
+        AFRAME.registerComponent('scene-manager', {
+            init: function () {
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                // Safely decode the URL in case Flutter encoded it
+                const rawModelUrl = urlParams.get('model');
+                const modelUrl = rawModelUrl ? decodeURIComponent(rawModelUrl) : null;
+                
+                const modelName = urlParams.get('name') || 'Unknown Model';
+                const modelDetails = urlParams.get('details') || 'No details available for this item.';
+
+                const titleEl = document.getElementById('ui-title');
+                const descEl = document.getElementById('ui-desc');
+                const modelEl = document.getElementById('target-model');
+
+                titleEl.setAttribute('value', modelName);
+                descEl.setAttribute('value', modelDetails);
+
+                if (modelUrl) {
+                    modelEl.setAttribute('gltf-model', modelUrl);
+                    
+                    // Success event
+                    modelEl.addEventListener('model-loaded', () => {
+                        setTimeout(() => {
+                            this.speakText(`${modelName}. ${modelDetails}`);
+                        }, 3500);
+                    });
+
+                    // Error event: If the model fails to load, update the VR UI
+                    modelEl.addEventListener('model-error', (evt) => {
+                        console.error('Model failed to load. Check CORS or URL:', evt);
+                        titleEl.setAttribute('value', 'Load Error');
+                        descEl.setAttribute('value', 'Failed to load model. Check server CORS policy or file format.');
+                    });
+
+                } else {
+                    titleEl.setAttribute('value', 'Error');
+                    descEl.setAttribute('value', 'No 3D model URL provided in the parameters.');
+                }
+            },
+
+            speakText: function (text) {
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'en-US';
+                    utterance.rate = 0.9;
+                    utterance.pitch = 1.0;
+                    window.speechSynthesis.speak(utterance);
+                }
+            }
+        });
+    </script>
+</head>
+<body>
+
+    <a-scene scene-manager renderer="colorManagement: true; physicallyCorrectLights: true" vr-mode-ui="enterAREnabled: false">
+        
+        <a-assets>
+            <img id="sky-tex" src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/city.jpg">
+        </a-assets>
+
+        <a-sky color="#87CEEB"></a-sky>
+        <a-plane color="#5b6166" rotation="-90 0 0" width="100" height="100" roughness="0.8"></a-plane>
+
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="1.2" position="-1 2 1"></a-light>
+
+        <a-entity position="0 1.6 0">
+            <a-camera look-controls="pointerLockEnabled: false"></a-camera>
+        </a-entity>
+
+        <a-entity position="0 2.8 -3.5" geometry="primitive: plane; width: 4; height: 1.5" material="color: #222222; opacity: 0.85; transparent: true">
+            <a-text id="ui-title" value="Loading..." position="0 0.4 0.02" align="center" width="6" color="#FFFFFF" font="kelsonsans"></a-text>
+            <a-text id="ui-desc" value="Please wait while the environment initializes." position="0 -0.2 0.02" align="center" width="3.5" wrap-count="40" color="#CCCCCC"></a-text>
+        </a-entity>
+
+        <a-entity position="0 1.2 -3" animation="property: rotation; to: 0 360 0; loop: true; dur: 20000; easing: linear">
+            <a-entity id="target-model" auto-fit></a-entity>
+        </a-entity>
+
+    </a-scene>
+
+</body>
+</html>
