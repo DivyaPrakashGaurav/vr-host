@@ -2,111 +2,102 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Smart VR Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fixed WebXR VR Viewer</title>
+    
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
     <script>
-        // 1. SCALING LOGIC (Fix)
-        AFRAME.registerComponent('scale-control', {
+        // ==========================================
+        // 1. COMPONENT TO DIAGNOSE MODEL ERRORS
+        // ==========================================
+        AFRAME.registerComponent('model-troubleshooter', {
             init: function () {
-                let el = this.el;
-                window.addEventListener('scale-up', () => {
-                    let curr = el.getAttribute('scale');
-                    el.setAttribute('scale', {x: curr.x * 1.2, y: curr.y * 1.2, z: curr.z * 1.2});
-                });
-                window.addEventListener('scale-down', () => {
-                    let curr = el.getAttribute('scale');
-                    el.setAttribute('scale', {x: curr.x * 0.8, y: curr.y * 0.8, z: curr.z * 0.8});
-                });
-            }
-        });
+                // Find and store references to UI text elements for updating status
+                this.statusTextEl = document.getElementById('debug-status');
+                this.detailsTextEl = document.getElementById('debug-details');
 
-        // 2. AUTO-FIT & CENTER
-        AFRAME.registerComponent('auto-fit', {
-            init: function () {
+                // Listener for successful model load
                 this.el.addEventListener('model-loaded', () => {
-                    const mesh = this.el.getObject3D('mesh');
-                    const box = new THREE.Box3().setFromObject(mesh);
-                    const size = box.getSize(new THREE.Vector3());
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    const scale = 2.0 / (maxDim || 1);
-                    this.el.setAttribute('scale', `${scale} ${scale} ${scale}`);
-                    const center = box.getCenter(new THREE.Vector3());
-                    mesh.position.set(-center.x, -center.y, -center.z);
+                    console.log("Model successfully loaded!");
+                    if (this.statusTextEl) this.statusTextEl.setAttribute('value', 'Model: Loaded Successfully');
+                    if (this.detailsTextEl) this.detailsTextEl.setAttribute('value', ''); // Clear previous error details
                 });
-            }
-        });
 
-        // 3. DATA FETCH & SPEAK (Fix)
-        AFRAME.registerComponent('scene-manager', {
-            init: function () {
-                const params = new URLSearchParams(window.location.search);
-                const jsonUrl = params.get('data');
-                const titleEl = document.querySelector('#ui-title');
-                const descEl = document.querySelector('#ui-desc');
-                const modelEl = document.querySelector('#target-model');
-
-                if (jsonUrl) {
-                    fetch(decodeURIComponent(jsonUrl))
-                        .then(res => res.json())
-                        .then(data => {
-                            titleEl.setAttribute('value', data.name);
-                            descEl.setAttribute('value', data.details);
-                            modelEl.setAttribute('gltf-model', data.model);
-
-                            // Voice Speak (After data is loaded)
-                            setTimeout(() => {
-                                this.speak(`${data.name}. ${data.details}`);
-                            }, 3000);
-                        })
-                        .catch(err => {
-                            titleEl.setAttribute('value', "Error loading JSON");
-                        });
-                }
-            },
-            speak: function(text) {
-                if ('speechSynthesis' in window) {
-                    const ut = new SpeechSynthesisUtterance(text);
-                    ut.lang = 'en-US';
-                    ut.rate = 0.9;
-                    window.speechSynthesis.speak(ut);
-                }
+                // Listener for model load errors
+                this.el.addEventListener('model-error', (event) => {
+                    console.error("Model failed to load. Check console for details.", event);
+                    if (this.statusTextEl) this.statusTextEl.setAttribute('value', 'Model: Error Loading');
+                    // Get a more descriptive error message to display in the VR UI
+                    const errorMessage = `Details: ${event.detail.error.message || 'Check browser console.'}`;
+                    if (this.detailsTextEl) this.detailsTextEl.setAttribute('value', errorMessage);
+                });
             }
         });
     </script>
 </head>
 <body>
-    <a-scene scene-manager vr-mode-ui="enterAREnabled: false" renderer="colorManagement: true">
-        <a-sky color="#111"></a-sky>
-        <a-plane rotation="-90 0 0" width="100" height="100" color="#222"></a-plane>
+
+    <a-scene renderer="colorManagement: true; physicallyCorrectLights: true; gammaOutput: true;" 
+             vr-mode-ui="enterAREnabled: false; enterVREnabled: true;">
+        
+        <a-sky color="#87CEEB"></a-sky>
+        
+        <a-plane color="#5b6166" 
+                 rotation="-90 0 0" 
+                 width="100" 
+                 height="100" 
+                 material="roughness: 0.8" 
+                 static-body="shape: box">
+        </a-plane>
+
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" 
+                 color="#ffffff" 
+                 intensity="1.2" 
+                 position="-1 2 1" 
+                 target="#target-model">
+        </a-light>
 
         <a-entity position="0 1.6 0">
-            <a-camera>
-                <a-cursor fuse="true" fuse-timeout="1000" raycaster="objects: .clickable" color="#00d1ff"></a-cursor>
-            </a-camera>
+            <a-camera look-controls></a-camera>
         </a-entity>
 
-        <a-light type="ambient" intensity="0.7"></a-light>
-        <a-light type="directional" intensity="1" position="1 3 1"></a-light>
+        <a-text value="Put on headset and use gaze-based selection" 
+                align="center" 
+                position="0 2.5 -3" 
+                width="4" 
+                color="#000000" 
+                font="dejavu">
+        </a-text>
 
-        <a-entity position="0 3 -4" geometry="primitive: plane; width: 4.5; height: 1.8" material="color: #000; opacity: 0.8">
-            <a-text id="ui-title" value="Loading..." position="0 0.5 0.02" align="center" width="6" color="#00d1ff"></a-text>
-            <a-text id="ui-desc" value="Please wait..." position="0 -0.2 0.02" align="center" width="3.5" wrap-count="45"></a-text>
+        <a-entity position="0 2 -3" geometry="primitive: plane; width: 3; height: 1" material="color: #000; opacity: 0.8; transparent: true">
+            <a-text id="debug-status" 
+                    value="Model: Not Loaded" 
+                    position="0 0.3 0.01" 
+                    align="center" 
+                    width="2.8" 
+                    color="#ffffff" 
+                    font="dejavu">
+            </a-text>
+            <a-text id="debug-details" 
+                    value="" 
+                    position="0 -0.2 0.01" 
+                    align="center" 
+                    width="2.5" 
+                    wrap-count="40" 
+                    color="#FF0000">
+            </a-text>
         </a-entity>
 
-        <a-entity id="model-container" position="0 1.2 -3" scale-control>
-            <a-entity id="target-model" auto-fit animation="property: rotation; to: 0 360 0; loop: true; dur: 20000; easing: linear"></a-entity>
+        <a-entity id="target-model" 
+                  gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb" 
+                  position="0 1 -4" 
+                  scale="2 2 2" 
+                  model-troubleshooter>
         </a-entity>
+        
+        </a-scene>
 
-        <a-entity position="-1.2 0.5 -2.5" geometry="primitive: box; width: 0.5; height: 0.3; depth: 0.1" material="color: #333" 
-                  class="clickable" onclick="window.dispatchEvent(new Event('scale-up'))">
-            <a-text value="Size +" align="center" position="0 0 0.06" width="3"></a-text>
-        </a-entity>
-
-        <a-entity position="1.2 0.5 -2.5" geometry="primitive: box; width: 0.5; height: 0.3; depth: 0.1" material="color: #333" 
-                  class="clickable" onclick="window.dispatchEvent(new Event('scale-down'))">
-            <a-text value="Size -" align="center" position="0 0 0.06" width="3"></a-text>
-        </a-entity>
-
-    </a-scene>
 </body>
 </html>
