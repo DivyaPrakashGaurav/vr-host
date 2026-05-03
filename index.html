@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>VR Viewer</title>
   <style>
-    body { margin:0; overflow:hidden; background:#000; }
+    body { margin:0; overflow:hidden; background:black; }
     #loading {
       position:absolute;
       top:50%; left:50%;
@@ -18,10 +18,86 @@
 <body>
   <div id="loading">Loading VR...</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158/examples/js/webxr/VRButton.js"></script>
+  <script type="module">
 
-  <script src="app.js"></script>
+    import * as THREE from 'https://unpkg.com/three@0.158/build/three.module.js';
+    import { GLTFLoader } from 'https://unpkg.com/three@0.158/examples/jsm/loaders/GLTFLoader.js';
+    import { VRButton } from 'https://unpkg.com/three@0.158/examples/jsm/webxr/VRButton.js';
+
+    let scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+
+    let camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 100);
+    camera.position.set(0, 1.6, 3);
+
+    let renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    document.body.appendChild(VRButton.createButton(renderer));
+
+    let light = new THREE.HemisphereLight(0xffffff, 0x444444);
+    scene.add(light);
+
+    const loading = document.getElementById("loading");
+
+    // URL decode fix
+    const params = new URLSearchParams(window.location.search);
+    const jsonUrl = decodeURIComponent(params.get("data") || "");
+
+    if (!jsonUrl) {
+      loading.innerText = "No JSON URL!";
+      throw new Error("No JSON URL");
+    }
+
+    // Fetch JSON
+    loading.innerText = "Fetching JSON...";
+    const res = await fetch(jsonUrl);
+    const data = await res.json();
+
+    console.log("DATA:", data);
+
+    if (!data.model) {
+      loading.innerText = "Model missing!";
+      throw new Error("No model URL");
+    }
+
+    // Load model
+    loading.innerText = "Loading Model...";
+    const loader = new GLTFLoader();
+
+    loader.load(
+      data.model,
+      (gltf) => {
+        const model = gltf.scene;
+
+        model.position.set(0, 1, -3);
+        model.scale.set(1,1,1);
+
+        scene.add(model);
+
+        loading.style.display = "none";
+
+        // Voice after 3 sec
+        setTimeout(() => {
+          const speech = new SpeechSynthesisUtterance(data.details || "Model loaded");
+          speech.lang = "en-US";
+          speechSynthesis.speak(speech);
+        }, 3000);
+      },
+      undefined,
+      (err) => {
+        console.error(err);
+        loading.innerText = "Model Load Error!";
+      }
+    );
+
+    // Render loop
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+    });
+
+  </script>
 </body>
 </html>
