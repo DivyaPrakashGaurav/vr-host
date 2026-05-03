@@ -18,66 +18,86 @@ async function init() {
 
   document.body.appendChild(VRButton.createButton(renderer));
 
-  // Light
   const light = new THREE.HemisphereLight(0xffffff, 0x444444);
   scene.add(light);
 
-  // GET JSON from Flutter
-  const params = new URLSearchParams(window.location.search);
-  const jsonUrl = params.get("data");
-
-  if (!jsonUrl) {
-    alert("No data provided");
-    return;
-  }
+  const loading = document.getElementById("loading");
 
   try {
+    const params = new URLSearchParams(window.location.search);
+    const jsonUrl = params.get("data");
+
+    if (!jsonUrl) {
+      loading.innerText = "No JSON URL!";
+      return;
+    }
+
+    loading.innerText = "Fetching JSON...";
+
     const res = await fetch(jsonUrl);
     const data = await res.json();
 
-    loadModel(data.model, data.description);
+    console.log("JSON:", data);
 
-  } catch (e) {
-    console.error(e);
-    alert("Failed to load JSON");
+    if (!data.model) {
+      loading.innerText = "Model missing!";
+      return;
+    }
+
+    loadModel(data.model, data.details); // ✅ FIX
+
+  } catch (err) {
+    console.error(err);
+    loading.innerText = "Error loading JSON";
   }
 }
 
-// MODEL LOAD
-function loadModel(url, description) {
+// 🔥 MODEL LOAD
+function loadModel(url, details) {
+
   const loader = new THREE.GLTFLoader();
 
-  loader.load(url, (gltf) => {
+  document.getElementById("loading").innerText = "Loading Model...";
 
-    model = gltf.scene;
-    model.position.set(0, 1, -3);
-    model.scale.set(1,1,1);
+  loader.load(
+    url,
+    (gltf) => {
+      model = gltf.scene;
 
-    scene.add(model);
+      model.position.set(0, 1, -3);
+      model.scale.set(1,1,1);
 
-    document.getElementById("loading").style.display = "none";
+      scene.add(model);
 
-    // 3–4 sec baad voice
-    setTimeout(() => speak(description), 3000);
+      document.getElementById("loading").style.display = "none";
 
-  });
+      // 🔊 Voice (3 sec delay)
+      setTimeout(() => speak(details), 3000);
+    },
+
+    undefined,
+
+    (error) => {
+      console.error(error);
+      document.getElementById("loading").innerText = "Model Load Error!";
+    }
+  );
 }
 
-// Voice
+// 🔊 Voice
 function speak(text) {
   const speech = new SpeechSynthesisUtterance(text);
-  speech.lang = "en-US"; // change to hi-IN for Hindi
+  speech.lang = "en-US";
   speechSynthesis.speak(speech);
 }
 
-// Rotate (drag)
+// Rotate
 window.addEventListener("pointermove", (e) => {
   if(model && e.buttons === 1){
     model.rotation.y += e.movementX * 0.01;
   }
 });
 
-// Loop
 function animate() {
   renderer.setAnimationLoop(() => {
     renderer.render(scene, camera);
