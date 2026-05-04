@@ -1,103 +1,62 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>VR Viewer</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR Model Viewer</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    
+    <script>
+        // URL logic
+        AFRAME.registerComponent('dynamic-model', {
+            init: function () {
+                const urlParams = new URLSearchParams(window.location.search);
+                const modelUrl = urlParams.get('model');
+                const name = urlParams.get('name');
+                const details = urlParams.get('details');
 
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+                // Set Name Text
+                if (name) {
+                    document.getElementById('titleText').setAttribute('value', name);
+                }
 
-  <style>
-    body { margin:0; }
-    #loading {
-      position:absolute;
-      top:50%; left:50%;
-      transform:translate(-50%,-50%);
-      color:white;
-      font-size:18px;
-      z-index:999;
-    }
-  </style>
+                // Load 3D Model
+                if (modelUrl) {
+                    this.el.setAttribute('gltf-model', modelUrl);
+                } else {
+                    document.getElementById('titleText').setAttribute('value', 'Error: No Model URL Found');
+                }
+            }
+        });
+    </script>
 </head>
-
 <body>
+    <a-scene background="color: #202020">
+        <a-assets>
+            </a-assets>
 
-<div id="loading">Loading VR...</div>
+        <a-camera position="0 1.6 0">
+            <a-cursor color="yellow"></a-cursor>
+        </a-camera>
 
-<a-scene background="color: #111">
+        <a-text 
+            id="titleText" 
+            value="Loading Model..." 
+            position="0 2.5 -3" 
+            align="center" 
+            color="#FFFFFF" 
+            scale="1.5 1.5 1.5">
+        </a-text>
 
-  <!-- Camera -->
-  <a-entity camera position="0 1.6 0" look-controls></a-entity>
-
-  <!-- Light -->
-  <a-light type="ambient" intensity="0.7"></a-light>
-  <a-light type="directional" intensity="1" position="1 1 1"></a-light>
-
-  <!-- Model -->
-  <a-entity id="model"
-            position="0 1 -3"
+        <a-entity 
+            dynamic-model 
+            position="0 1 -3" 
             scale="1 1 1"
-            rotation="0 180 0">
-  </a-entity>
+            animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear">
+        </a-entity>
 
-</a-scene>
-
-<script>
-
-async function initVR() {
-
-  const loading = document.getElementById("loading");
-
-  try {
-    // 🔥 URL decode (IMPORTANT)
-    const params = new URLSearchParams(window.location.search);
-    const jsonUrl = decodeURIComponent(params.get("data") || "");
-
-    if (!jsonUrl) {
-      loading.innerText = "No JSON URL!";
-      return;
-    }
-
-    loading.innerText = "Fetching JSON...";
-
-    // 🔥 Fetch JSON
-    const res = await fetch(jsonUrl);
-    const data = await res.json();
-
-    console.log("JSON:", data);
-
-    if (!data.model) {
-      loading.innerText = "Model missing!";
-      return;
-    }
-
-    // 🔥 Load model
-    const modelEl = document.getElementById("model");
-
-    modelEl.setAttribute("gltf-model", data.model);
-
-    // Model loaded event
-    modelEl.addEventListener("model-loaded", () => {
-
-      loading.style.display = "none";
-
-      // 🔊 Voice after 3 sec
-      setTimeout(() => {
-        const speech = new SpeechSynthesisUtterance(data.details || "Model loaded");
-        speech.lang = "en-US";
-        speechSynthesis.speak(speech);
-      }, 3000);
-
-    });
-
-  } catch (err) {
-    console.error(err);
-    loading.innerText = "Error loading data!";
-  }
-}
-
-initVR();
-
-</script>
-
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.8" position="-1 2 1"></a-light>
+    </a-scene>
 </body>
 </html>
