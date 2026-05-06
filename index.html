@@ -1,97 +1,118 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VR Model Viewer</title>
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    
-    <script>
-        AFRAME.registerComponent('vr-controller', {
-            init: function () {
-                const urlParams = new URLSearchParams(window.location.search);
-                const modelUrl = urlParams.get('model');
-                const name = urlParams.get('name') || '3D Model';
-                const details = urlParams.get('details') || 'No details available.';
-
-                // 1. Set Title & Details Text in VR Scene
-                document.getElementById('titleText').setAttribute('value', name);
-                document.getElementById('detailsText').setAttribute('value', details);
-
-                // 2. Load 3D Model
-                if (modelUrl) {
-                    this.el.setAttribute('gltf-model', modelUrl);
-                } else {
-                    document.getElementById('titleText').setAttribute('value', 'Error: No Model URL');
-                }
-
-                // 3. Text-To-Speech (Voice) Logic
-                let hasSpoken = false;
-
-                const speakDetails = () => {
-                    if (hasSpoken) return; 
-                    hasSpoken = true;
-
-                    if ('speechSynthesis' in window) {
-                        window.speechSynthesis.cancel();
-                        const textToSpeak = name + ". " + details;
-                        const utterance = new SpeechSynthesisUtterance(textToSpeak);
-                        utterance.lang = 'en-US';
-                        utterance.rate = 0.9; 
-                        utterance.pitch = 1.0;
-                        window.speechSynthesis.speak(utterance);
-                    }
-                };
-
-                // Exactly 3 seconds
-                setTimeout(() => {
-                    speakDetails();
-                }, 3000);
-
-                // Fallback:
-                window.addEventListener('click', speakDetails);
-                window.addEventListener('touchstart', speakDetails);
-            }
-        });
-    </script>
-</head>
-<body>
-    <a-scene background="color: #111111">
-        
-        <a-camera position="0 1.6 0">
-            <a-cursor color="#4CC3D9" opacity="0.6" scale="0.8 0.8 0.8"></a-cursor>
-        </a-camera>
-
-        <a-entity position="0 2.8 -3">
-            <a-text 
-                id="titleText" 
-                value="Loading Title..." 
-                align="center" 
-                color="#FFD700" 
-                scale="1.3 1.3 1.3"
-                position="0 0.4 0">
-            </a-text>
-
-            <a-text 
-                id="detailsText" 
-                value="Loading details..." 
-                align="center" 
-                color="#FFFFFF" 
-                width="4" 
-                wrap-count="35" 
-                position="0 -0.2 0">
-            </a-text>
-        </a-entity>
-
-        <a-entity 
-            id="modelEntity"
-            vr-controller 
-            position="0 0.8 -3" 
-            scale="0.3 0.3 0.3">
-        </a-entity>
-
-        <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
-        <a-light type="directional" color="#ffffff" intensity="1" position="-1 2 1"></a-light>
-    </a-scene>
-</body>
-</html>
+te Pro VR</title>
+     6     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+     7     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+     8     <script src="https://unpkg.com/aframe-environment-component@1.3.7/dist/aframe-environment-component.min.js"></script>
+     9     
+    10     <style>
+    11       body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+    12       .ui-overlay {
+    13         position: absolute;
+    14         top: 0; left: 0; width: 100%; height: 100%;
+    15         pointer-events: none;
+    16         z-index: 1000;
+    17         display: flex;
+    18         flex-direction: column;
+    19         justify-content: center;
+    20         align-items: center;
+    21         padding: 30px;
+    22       }
+    23       .goggles-btn {
+    24         pointer-events: auto;
+    25         width: 100px;
+    26         height: 100px;
+    27         border-radius: 50%;
+    28         background: linear-gradient(135deg, #00C6FF, #0072FF);
+    29         border: none;
+    30         box-shadow: 0 0 30px rgba(0, 198, 255, 0.6);
+    31         cursor: pointer;
+    32         display: flex;
+    33         align-items: center;
+    34         justify-content: center;
+    35         animation: pulse 2s infinite;
+    36       }
+    37       @keyframes pulse {
+    38         0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 198, 255, 0.7); }
+    39         70% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(0, 198, 255, 0); }
+    40         100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 198, 255, 0); }
+    41       }
+    42       .status {
+    43         color: white;
+    44         margin-top: 20px;
+    45         font-weight: bold;
+    46         text-transform: uppercase;
+    47         letter-spacing: 2px;
+    48       }
+    49       svg { width: 45px; height: 45px; fill: white; }
+    50     </style>
+    51   </head>
+    52   <body>
+    53     <div class="ui-overlay" id="overlay">
+    54       <button class="goggles-btn" onclick="initVR()">
+    55         <svg viewBox="0 0 24 24"><path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-12 11c-1.66
+       0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm6 0c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
+    56       </button>
+    57       <div class="status" id="status">Tap for 360 VR</div>
+    58     </div>
+    59
+    60     <a-scene embedded="false" vr-mode-ui="enabled: false" renderer="antialias: true; colorManagement: true; exposure: 1.2;">
+    61       <a-assets id="assets-container"></a-assets>
+    62
+    63       <!-- Starry Environment for movement feedback -->
+    64       <a-entity environment="preset: starry; ground: flat; groundColor: #050505; grid: cross; gridColor: #222; lighting: none; skyType:
+       color; skyColor: #000; dressingAmount: 0;"></a-entity>
+    65
+    66       <!-- Advanced Lighting -->
+    67       <a-light type="ambient" intensity="0.7"></a-light>
+    68       <a-light type="directional" position="1 5 3" intensity="1.0"></a-light>
+    69       <a-light type="point" position="-3 3 2" intensity="0.6" color="#00C6FF"></a-light>
+    70
+    71       <a-entity id="rig">
+    72         <a-camera id="main-camera" look-controls="enabled: true; magicWindowTrackingEnabled: true;" wasd-controls="enabled: false"
+       position="0 1.6 0"></a-camera>
+    73       </a-entity>
+    74
+    75       <a-entity id="product-model" position="0 1.3 -4" scale="2 2 2" animation="property: rotation; to: 0 360 0; loop: true; dur: 25000;
+       easing: linear"></a-entity>
+    76     </a-scene>
+    77
+    78     <script>
+    79       // URL se model load karne ka logic
+    80       const urlParams = new URLSearchParams(window.location.search);
+    81       const modelUrl = urlParams.get('model');
+    82
+    83       if (modelUrl) {
+    84         const assets = document.querySelector('#assets-container');
+    85         const modelEntity = document.querySelector('#product-model');
+    86         
+    87         const assetItem = document.createElement('a-asset-item');
+    88         assetItem.setAttribute('id', 'model-3d');
+    89         assetItem.setAttribute('src', modelUrl);
+    90         assetItem.setAttribute('crossorigin', 'anonymous');
+    91         assets.appendChild(assetItem);
+    92         
+    93         modelEntity.setAttribute('gltf-model', '#model-3d');
+    94       }
+    95
+    96       async function initVR() {
+    97         const status = document.querySelector('#status');
+    98         
+    99         // Sensor Permission for iOS/HTTPS
+   100         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+   101           try {
+   102             const permission = await DeviceOrientationEvent.requestPermission();
+   103             if (permission !== 'granted') {
+   104               alert("Permission required for 360 movement.");
+   105               return;
+   106             }
+   107           } catch (e) { console.error(e); }
+   108         }
+   109
+   110         const scene = document.querySelector('a-scene');
+   111         document.querySelector('#overlay').style.display = 'none';
+   112         
+   113         // Split screen mode
+   114         scene.enterVR();
+   115       }
+   116     </script>
+   117   </body>
+   118 </html>
